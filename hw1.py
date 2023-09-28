@@ -4,9 +4,10 @@ import time
 
 
 class CrossEntropyAgent:
-    def __init__(self, state_n, action_n, l_value=0.1, q_value=0.6) -> None:
+    def __init__(self, state_n, action_n, smoothing=None, l_value=None, q_value=0.6) -> None:
         self.state_n = state_n
         self.action_n = action_n
+        self.smoothing = smoothing
         self.q_value = q_value
         self.l_value = l_value
         self.model = np.ones((self.state_n, self.action_n)) / self.action_n
@@ -21,6 +22,11 @@ class CrossEntropyAgent:
             if not np.sum(new_model[state]) == 0:
                 self.model[state] = new_model[state] * self.l_value + self.model[state] * (1 - self.l_value) 
     
+    def _laplace_smoothing(self, new_model):
+        for state in range(self.state_n):
+            if not np.sum(new_model[state]) == 0:
+                self.model[state] = new_model[state] + self.l_value
+
     def _no_smoothing(self, new_model):
         self.model[np.sum(new_model, axis=1) != 0] = new_model[np.sum(new_model, axis=1) != 0]
     
@@ -30,7 +36,7 @@ class CrossEntropyAgent:
         elite_trajectories = [trajectory for trajectory in trajectories if np.sum(trajectory['rewards']) > quantile]
         return elite_trajectories
 
-    def fit(self, trajectories, smoothing='laplace'):
+    def fit(self, trajectories):
         """Fit model
 
         Attrs:
@@ -44,9 +50,11 @@ class CrossEntropyAgent:
             for state, action in zip(trajectory['states'], trajectory['actions']):
                 new_model[state][action] += 1
         
-        if smoothing == 'policy':
+        if self.smoothing == 'policy':
             self._policy_smoothing(new_model)
-        else:
+        elif self.smoothing == 'laplace':
+            self._laplace_smoothing(new_model)
+        elif not self.smoothing:
             self._no_smoothing(new_model)
 
 
@@ -92,13 +100,14 @@ if __name__ == '__main__':
     env = gym.make('Taxi-v3')
     action_space = env.action_space.n
     obesrv_space = env.observation_space.n
-    n_iterations = 200
+    n_iterations = 500
     n_trajectories = 1000
     n_steps = 200
     q = 0.7
     l = 0.1
 
-    agent = CrossEntropyAgent(action_n=action_space, state_n=obesrv_space, l_value=l, q_value=q)
+    agent = CrossEntropyAgent(action_n=action_space, state_n=obesrv_space, 
+                              smoothing='laplace', l_value=l, q_value=q)
     
     start = time.time()
     for i in range(n_iterations):
@@ -110,5 +119,5 @@ if __name__ == '__main__':
             print(f'iteration: {i}/{n_iterations}')
             get_stats(iteration_trajectories, display=True)
 
-        agent.fit(iteration_trajectories, smoothing='policy')
+        agent.fit(iteration_trajectories)
     print(f'total time: {time.time() - start}')
