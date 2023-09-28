@@ -1,7 +1,7 @@
 import gym
 import numpy as np
 import time
-import pickle
+
 
 class CrossEntropyAgent:
     def __init__(self, state_n, action_n, l_value=0.1, q_value=0.6) -> None:
@@ -17,7 +17,12 @@ class CrossEntropyAgent:
         return action
     
     def _policy_smoothing(self, new_model):
-        return new_model * self.l_value + self.model * (1 - self.l_value) 
+        for state in range(self.state_n):
+            if not np.sum(new_model[state]) == 0:
+                self.model[state] = new_model[state] * self.l_value + self.model[state] * (1 - self.l_value) 
+    
+    def _no_smoothing(self, new_model):
+        self.model[np.sum(new_model, axis=1) != 0] = new_model[np.sum(new_model, axis=1) != 0]
     
     def _get_elite_trajectories(self, trajectories):
         mean_rewards = [np.sum(trajectory['rewards']) for trajectory in trajectories]
@@ -38,7 +43,11 @@ class CrossEntropyAgent:
         for trajectory in elite_trajectories:
             for state, action in zip(trajectory['states'], trajectory['actions']):
                 new_model[state][action] += 1
-        self.model = self._policy_smoothing(new_model)
+        
+        if smoothing == 'policy':
+            self._policy_smoothing(new_model)
+        else:
+            self._no_smoothing(new_model)
 
 
 def get_trajectory(env, agent, max_steps, visualize=False):
@@ -83,14 +92,15 @@ if __name__ == '__main__':
     env = gym.make('Taxi-v3')
     action_space = env.action_space.n
     obesrv_space = env.observation_space.n
-    n_iterations = 100
-    n_trajectories = 500
+    n_iterations = 200
+    n_trajectories = 1000
     n_steps = 200
     q = 0.7
     l = 0.1
 
     agent = CrossEntropyAgent(action_n=action_space, state_n=obesrv_space, l_value=l, q_value=q)
-
+    
+    start = time.time()
     for i in range(n_iterations):
         iteration_trajectories = []
         for n in range(n_trajectories):
@@ -100,5 +110,5 @@ if __name__ == '__main__':
             print(f'iteration: {i}/{n_iterations}')
             get_stats(iteration_trajectories, display=True)
 
-        agent.fit(iteration_trajectories)
-    get_trajectory(env, agent, max_steps=200, visualize=True)
+        agent.fit(iteration_trajectories, smoothing='policy')
+    print(f'total time: {time.time() - start}')
