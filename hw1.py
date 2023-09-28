@@ -104,7 +104,7 @@ if __name__ == '__main__':
     n_trajectories = 1000
     n_steps = 200
     q = 0.7
-    l = 0.1
+    l = 2
 
     agent = CrossEntropyAgent(action_n=action_space, state_n=obesrv_space, 
                               smoothing='laplace', l_value=l, q_value=q)
