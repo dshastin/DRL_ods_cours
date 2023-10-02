@@ -18,8 +18,6 @@ class CrossEntropyAgent:
             return action
         except:
             print(np.sum(probs))
-
-
     
     def fit(self, elite_trajectories):
         """Fit model
@@ -98,28 +96,62 @@ if __name__ == '__main__':
     env = gym.make('Taxi-v3')
     action_space = env.action_space.n
     obesrv_space = env.observation_space.n
-    n_iterations = 500
-    n_trajectories = 1000
     n_steps = 200
-    smoothing_type = 'laplace'
-    q = 0.7
-    l = 1
+
+    n_iterations = 200
+    n_trajectories = 500
+    n_packs = 20
+    smoothing_type = None
+    stochastic_env = True
+    q = 0.6
+    l = 0.1
 
     agent = CrossEntropyAgent(action_n=action_space, state_n=obesrv_space, 
                               smoothing=smoothing_type, l_value=l)
     
     start = time.time()
 
-    for i in range(n_iterations):
-        iteration_trajectories = []
-        for n in range(n_trajectories):
-            trajectory = get_trajectory(env, agent, n_steps)
-            iteration_trajectories.append(trajectory)
-        if i % 10 == 0:
-            print(f'iteration: {i}/{n_iterations}')
-            get_stats(iteration_trajectories, display=True)
+    if not stochastic_env:
+        for i in range(n_iterations):
+            iteration_trajectories = []
+            for n in range(n_trajectories):
+                trajectory = get_trajectory(env, agent, n_steps)
+                iteration_trajectories.append(trajectory)
+            if i % 10 == 0:
+                print(f'iteration: {i}/{n_iterations}')
+                get_stats(iteration_trajectories, display=True)
 
-        elite_trajectories = get_elite_trajectories(iteration_trajectories, q)
-        agent.fit(elite_trajectories)
+            elite_trajectories = get_elite_trajectories(iteration_trajectories, q)
+            agent.fit(elite_trajectories)
+
+    else:
+        print('stochastic')
+        for iteration in range(n_iterations):
+            iteration_seed = np.random.randint(0,31337)
+            trajectory_packs = []
+            for i in range(n_packs):
+                env.reset(seed=iteration_seed)
+                trajectory_pack = []
+                for n in range(n_trajectories):
+                    trajectory = get_trajectory(env, agent, n_steps)
+                    trajectory_pack.append(trajectory)
+                trajectory_packs.append(trajectory_pack)
+            
+            mean_pack_rewards = []
+            for pack_idx in range(n_packs):
+                total_rewards = [np.sum(t['rewards']) for t in trajectory_packs[pack_idx]]
+                mean_pack_rewards.append(np.mean(total_rewards))
+
+            quantile = np.quantile(mean_pack_rewards, q)
+            # elite_pack_rewards = [p for p in mean_pack_rewards if p > quantile]
+
+            elite_packs_idx = np.where(np.array(mean_pack_rewards) > quantile)
+            elite_packs = np.array(trajectory_packs)[elite_packs_idx]
+
+            print(f'iteration: {iteration}/{n_iterations}')
+            get_stats(np.array(trajectory_packs).reshape(-1), display=True)
+
+            agent.fit(elite_packs.reshape(-1))
+
 
     print(f'total time: {time.time() - start}')
