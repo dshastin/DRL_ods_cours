@@ -65,7 +65,7 @@ def get_trajectory(env, agent, max_steps, visualize=False):
             time.sleep(0.1)
     return trajectory
 
-def get_stats(trajectories, display=True):
+def get_stats(trajectories, display=False):
     iteration_stats = dict()
     iteration_stats['rewards'] = []
     iteration_stats['steps'] = []
@@ -92,12 +92,15 @@ def get_elite_trajectories(trajectories, q):
         return elite_trajectories
 
 def fit(env, agent, q, stochastic_env, n_iterations, n_trajectories, n_steps, n_packs):
+    mean_rewards_list = []
     if not stochastic_env:
         for i in range(n_iterations):
             iteration_trajectories = []
             for n in range(n_trajectories):
                 trajectory = get_trajectory(env, agent, n_steps)
                 iteration_trajectories.append(trajectory)
+            rewards = get_stats(iteration_trajectories)['rewards']
+            mean_rewards_list.append(np.mean(rewards))
             if i % 10 == 0:
                 print(f'iteration: {i}/{n_iterations}')
                 get_stats(iteration_trajectories, display=True)
@@ -131,6 +134,7 @@ def fit(env, agent, q, stochastic_env, n_iterations, n_trajectories, n_steps, n_
             get_stats(np.array(trajectory_packs).reshape(-1), display=True)
 
             agent.fit(elite_packs.reshape(-1))
+    return mean_rewards_list
 
 if __name__ == '__main__':
     agent_params = dict(
@@ -151,5 +155,5 @@ if __name__ == '__main__':
 
     env = gym.make('Taxi-v3')
     agent = CrossEntropyAgent(**agent_params)
-
-    fit(env, agent, **fit_params)
+    rewards = fit(env, agent, **fit_params)
+    print(rewards)
