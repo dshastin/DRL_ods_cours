@@ -4,10 +4,10 @@ import time
 
 
 class CrossEntropyAgent:
-    def __init__(self, state_n, action_n, smoothing=None, l_value=None) -> None:
+    def __init__(self, state_n, action_n, smoothing_type=None, l_value=None) -> None:
         self.state_n = state_n
         self.action_n = action_n
-        self.smoothing = smoothing
+        self.smoothing = smoothing_type
         self.l_value = l_value
         self.model = np.ones((self.state_n, self.action_n)) / self.action_n
 
@@ -91,26 +91,7 @@ def get_elite_trajectories(trajectories, q):
         elite_trajectories = [trajectory for trajectory in trajectories if np.sum(trajectory['rewards']) > quantile]
         return elite_trajectories
 
-
-if __name__ == '__main__':
-    env = gym.make('Taxi-v3')
-    action_space = env.action_space.n
-    obesrv_space = env.observation_space.n
-    n_steps = 200
-
-    n_iterations = 200
-    n_trajectories = 500
-    n_packs = 20
-    smoothing_type = None
-    stochastic_env = True
-    q = 0.6
-    l = 0.1
-
-    agent = CrossEntropyAgent(action_n=action_space, state_n=obesrv_space, 
-                              smoothing=smoothing_type, l_value=l)
-    
-    start = time.time()
-
+def fit(env, agent, q, stochastic_env, n_iterations, n_trajectories, n_steps, n_packs):
     if not stochastic_env:
         for i in range(n_iterations):
             iteration_trajectories = []
@@ -125,7 +106,7 @@ if __name__ == '__main__':
             agent.fit(elite_trajectories)
 
     else:
-        print('stochastic')
+        print('stochastic env')
         for iteration in range(n_iterations):
             iteration_seed = np.random.randint(0,31337)
             trajectory_packs = []
@@ -143,8 +124,6 @@ if __name__ == '__main__':
                 mean_pack_rewards.append(np.mean(total_rewards))
 
             quantile = np.quantile(mean_pack_rewards, q)
-            # elite_pack_rewards = [p for p in mean_pack_rewards if p > quantile]
-
             elite_packs_idx = np.where(np.array(mean_pack_rewards) > quantile)
             elite_packs = np.array(trajectory_packs)[elite_packs_idx]
 
@@ -153,5 +132,24 @@ if __name__ == '__main__':
 
             agent.fit(elite_packs.reshape(-1))
 
+if __name__ == '__main__':
+    agent_params = dict(
+        action_n = 6,
+        state_n = 500,
+        smoothing_type = None,
+        l_value = 0.1,
+    )
 
-    print(f'total time: {time.time() - start}')
+    fit_params = dict(
+        n_iterations = 200,
+        n_trajectories = 500,
+        n_packs = 20,
+        n_steps = 200,
+        stochastic_env = False,
+        q = 0.6,
+    )
+
+    env = gym.make('Taxi-v3')
+    agent = CrossEntropyAgent(**agent_params)
+
+    fit(env, agent, **fit_params)
