@@ -20,12 +20,6 @@ class CrossEntropyAgent:
             print(np.sum(probs))
     
     def fit(self, elite_trajectories):
-        """Fit model
-
-        Attrs:
-            smoothing_type (str): type of smoothing ['None', 'laplace', 'policy']
-            smoothing_lambda (int/float): lamda-value 
-        """
         new_model = np.zeros((self.state_n, self.action_n))
 
         for trajectory in elite_trajectories:
@@ -91,7 +85,7 @@ def get_elite_trajectories(trajectories, q):
         elite_trajectories = [trajectory for trajectory in trajectories if np.sum(trajectory['rewards']) > quantile]
         return elite_trajectories
 
-def fit(env, agent, q, stochastic_env, n_iterations, n_trajectories, n_steps, n_packs):
+def fit(env, agent, q, stochastic_env, n_iterations, n_trajectories, n_steps, n_packs, display=False):
     mean_rewards_list = []
     if not stochastic_env:
         for i in range(n_iterations):
@@ -103,7 +97,7 @@ def fit(env, agent, q, stochastic_env, n_iterations, n_trajectories, n_steps, n_
             mean_rewards_list.append(np.mean(rewards))
             if i % 10 == 0:
                 print(f'iteration: {i}/{n_iterations}')
-                get_stats(iteration_trajectories, display=True)
+                get_stats(iteration_trajectories, display=display)
 
             elite_trajectories = get_elite_trajectories(iteration_trajectories, q)
             agent.fit(elite_trajectories)
@@ -156,4 +150,3 @@ if __name__ == '__main__':
     env = gym.make('Taxi-v3')
     agent = CrossEntropyAgent(**agent_params)
     rewards = fit(env, agent, **fit_params)
-    print(rewards)
