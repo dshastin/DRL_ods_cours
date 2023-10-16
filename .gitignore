@@ -1,2 +1,4 @@
 /env
 /gym-mazeg
+__pycache__/*
+.ipynb_checkpoints
